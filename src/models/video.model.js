@@ -41,6 +41,7 @@ const videoSchema = Schema(
     { timestamps: true }
 );
 
-videoSchema.plugin(mongooseAggregatePaginate)
+videoSchema.plugin(mongooseAggregatePaginate);
+// with the help of this we can write aggregation queries 
 
 export const Video = model("Video", videoSchema);
