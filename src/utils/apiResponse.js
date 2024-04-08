@@ -8,3 +8,5 @@ class apiResponse {
         // if it was any error, then it should have been > 400. It's basically a good practice.
     };
 };
+
+export { apiResponse };
