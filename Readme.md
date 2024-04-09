@@ -8,4 +8,6 @@ UPDATES ::
 
 1. in user.controller.js, while checking existing user, make checking of username and email separate. So that we can say explicitely if the username is already taken or email already used.
 
-2. 
+2. create fixed status code for every error sent to user. Specify user existing error code, password error code ...
+
+3. 

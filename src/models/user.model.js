@@ -146,5 +146,23 @@ go to next().
 
 --------------------------------------------------------------------
 
+difference between access token and refresh token :
+
+access tokens are generally short lived, and refresh tokens are long lived. However it depends
+like for someone short lived means 1hr or for someone it means 1d.. and based upon different
+companies it differs on how they set the time for the access tokens and refresh tokens.
+
+The concept here is when we have the access token, all the authorized part of the webapp, we can
+visit. But as it is short lived, and let's say we set is as 15mins, which means every 15mins
+user has to login again, which is not a good user experience.
+
+Thus comes refresh tokens in the picture. This token are actually stored in the server and 
+also we give it to the user. We still validate the user using access token only. But once
+access token is expired, automatically the refresh token sent to user and stored in server,
+is checked if it is same or not. If the refresh tokens are same, a new access token is generated 
+and thus user doesn't require to login again.
+
+--------------------------------------------------------------------
+
 
 */

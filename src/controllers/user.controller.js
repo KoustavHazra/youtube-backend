@@ -4,6 +4,28 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { apiResponse } from "../utils/apiResponse.js";
 
+
+const getAccessAndRefreshToken = async (userId) => {
+    try {
+        const user = await User.findById(userId);
+        const accessToken = user.getAccessAndRefreshToken();
+        const refreshToken = user.generateRefreshToken();
+
+        // refresh token is saved in db -- we will store it in the user object and save it
+        user.refreshToken = refreshToken;
+        await user.save({ validateBeforeSave: false });
+        // while saving since all the data in User is going to save, and here we don't have access
+        // to all data, we make sure only refresh token is saved by adding { validateBeforeSave: false }
+        // in .save() method.
+
+        return { accessToken, refreshToken };
+        
+    } catch (error) {
+        throw new apiError(500, "TOKEN GENERATION ISSUE. PLEASE REACH OUT TO PUZZLES.")
+    }
+};
+
+
 const registerUser = asyncHandler( async (req, res) => {
     // get userdata from registration form
     const { username, fullName, email, password } = req.body;
@@ -27,9 +49,7 @@ const registerUser = asyncHandler( async (req, res) => {
         // any of the username or email if already exists in db, it will return that
     });
 
-    if (existingUser) {
-        throw new apiError(409, "User already exists.")
-    }
+    if (existingUser) throw new apiError(409, "User already exists.")
 
     
     // get the required files - images and avatar
@@ -81,13 +101,144 @@ const registerUser = asyncHandler( async (req, res) => {
 
     return res.status(201).json(
         new apiResponse(201, newUser, "User registered successfully.")
-    )
+    );
 
     // login the user
 
 } )
 
-export { registerUser };
+
+const loginUser = asyncHandler( async (req, res) => {
+    // get user data - email and password
+    const { username, email, password } = req.body;
+
+    // username based login or email based login
+    if ( !username || !email ) throw new apiError(400, "username or email is required.");
+
+    // validate the inputs - check new user or existing user
+    const existingUser = await User.findOne({
+        $or: [{ username }, { email }]
+    })
+
+    if (!existingUser) throw new apiError(404, "User does not exist.")
+
+    // password checking
+    const isPasswordValid = await existingUser.isPasswordCorrect(password);
+
+    if (!isPasswordValid) throw new apiError(409, "Password is invalid. Please put correct password.")
+
+    // create access and refresh token - send them to user -- we created separate method for these.
+    const { accessToken, refreshToken } = await getAccessAndRefreshToken(existingUser._id);
+
+    // send cookie
+    // while returning the data to user, we just cannot send everything to the frontend - such as password
+    // also in the existingUser, we still don't have the refresh token or access token, since it was
+    // created before the token were created. 
+    // so wither we update the existingUser object or we can do a db query -- it totally depends upon us
+    // which way we should go, as db operation can be an expensive operation.
+    const loggedInUser = await User.findById(existingUser._id).select(
+        " -password -refreshToken "
+    );
+
+    const options = {  // adding some security measure for our cookie
+        httpOnly: true,
+        secure: true
+    }
+
+    // return seccess
+    return res
+            .status(200)
+            .cookie( "accessToken", accessToken, options )
+            .cookie( "refreshToken", refreshToken, options)
+            .json(
+                new apiResponse( 
+                    200, 
+                    { existingUser: loggedInUser, accessToken, refreshToken }, 
+                    "User logged in successfully."
+                    // we already sent these accessToken and refreshToken through cookie,
+                    // but why again sending in the json response ---
+                    // because here we are handling those cases where user wants to save these tokens
+                    // on their own ( not a good practice ).. but is needed when the user wants to store
+                    // it in the local storage or maybe they're building a mobile app and in mobile app
+                    // cookies will not be set.
+                    )
+                )
+    } );
+
+
+const logoutUser = asyncHandler( async (req, res) => {
+    // here we don't have the access to anything like we were having in register or login
+    // as in those scenarios we were getting data from req.body.
+    // Here to get some data, basically to logout the user we will build a middleware
+    // the only thing this middleware will do is let us know if the user is logged in or not.
+    
+    // delete the refresh token
+    await User.findByIdAndUpdate(
+        req.isVerifiedUser._id,
+        {
+            $set: { refreshToken: undefined }
+            // through User we will find the user using req.isVerifiedUser._id, and using $set operator
+            // we will delete the refresh token from server
+        },
+        {
+            new: true
+            // because of this, in the return response we will get the updated value, where
+            // refresh token will be undefined.
+        }
+    );
+
+    // clear the cookies
+    const options = {  // adding some security measure for our cookie
+        httpOnly: true,
+        secure: true
+    }   
+
+    return res
+            .status(200)
+            .clearCookie( "accessToken", options )
+            .clearCookie( "refreshToken", options)
+            .json(
+                new apiResponse( 
+                    200, 
+                    "User logged out successfully."
+                    )
+                )
+    } );
+
+
+export { registerUser, loginUser, logoutUser };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
