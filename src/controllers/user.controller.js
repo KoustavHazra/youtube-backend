@@ -21,7 +21,7 @@ const registerUser = asyncHandler( async (req, res) => {
     // check if the user is an existing user or not - we'll check username and email
     // to check if the user exists, we can use User model, as the Uuser model is created by mongoose
     // it can check for us if the user already exists or not.
-    const existingUser = User.findOne({
+    const existingUser = await User.findOne({  // using await, as it is performing a db call, which takes time
         $or: [{ username }, { email }]  
         // $or is an operator
         // any of the username or email if already exists in db, it will return that
@@ -31,15 +31,19 @@ const registerUser = asyncHandler( async (req, res) => {
         throw new apiError(409, "User already exists.")
     }
 
-
+    
     // get the required files - images and avatar
     const avatarLocalPath = req.files?.avatar[0]?.path;
-    const coverImageLocalPath = req.files?.coverImage[0]?.path;
+    // const coverImageLocalPath = req.files?.coverImage[0]?.path;
+    let coverImageLocalPath;
+    if ( req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+        coverImageLocalPath = req.files.coverImage[0].path;
+    }
 
 
     // check if the files are uploaded in the local path or not
     if (!avatarLocalPath) throw new apiError(410, "Avatar file is required. Please upload.");
-    if (!coverImageLocalPath) throw new apiError(410, "Cover image is required. Please upload.");
+    // if (!coverImageLocalPath) throw new apiError(410, "Cover image is required. Please upload.");
 
 
     // upload the files to cloudinary
@@ -49,7 +53,7 @@ const registerUser = asyncHandler( async (req, res) => {
 
     // check if files is properly uploaded there or not
     if (!avatar) throw new apiError(411, "Avatar was not uploaded successfully.");
-    if (!coverImage) throw new apiError(411, "Cover image was not uploaded successfully.");
+    // if (!coverImage) throw new apiError(411, "Cover image was not uploaded successfully.");
 
 
     // create a new user object - create new entry in db
@@ -96,6 +100,34 @@ then we want the "avatar" file ( as avatar is name we kept for our file ) ----> 
 Now avatar has many properties within it, and we need the first one ----> req.files?.avatar[0]
 The first one because if we take it optionally ( ? ), we will get the .path property, which will give us 
 the path of the directory where temporiraly our file is kept by Multer ----> req.files?.avatar[0].path
+
+whenever we do these optional chaining, we must check whether the output file is created or not... like
+in case of  -----
+const coverImageLocalPath = req.files?.coverImage[0]?.path; --- after creating this kinda checkings,
+we must put an if block to check the existance of the outout.. thus we added this:
+
+if (!coverImageLocalPath) throw new apiError(410, "Cover image is required. Please upload.");
+
+Actually if we do this method chaining, some unwanted issues might arrive.. such as ---
+TypeError: Cannot read properties of undefined (reading '0')
+
+It occurs when we have the coverImage code -- const coverImageLocalPath = req.files?.coverImage[0]?.path;
+But we haven't uploaded the cover image. 
+
+So it is better to handle such scenarios with basic if-else, thus we can see what is the proper error.
+As we use this code:
+let coverImageLocalPath;
+    if ( req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+        coverImageLocalPath = req.files.coverImage[0].path;
+    }
+
+    Now even if we don't upload cover image, we get the proper error --- 
+    if (!coverImageLocalPath) throw new apiError(410, "Cover image is required. Please upload.");
+
+    or if we haven't set any checking, then from this code:: coverImage: coverImage?.url || ""
+    our cover image will automatically set as "", and it won't throw any error - which won't
+    be stopping the flow.
+
 
 How Multer is storing the file in our local storage ? That code is written in multer.middleware.js file.
 
