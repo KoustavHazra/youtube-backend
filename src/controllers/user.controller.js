@@ -3,12 +3,13 @@ import { apiError } from "../utils/apiError.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import jwt from "jsonwebtoken";
 
 
 const getAccessAndRefreshToken = async (userId) => {
     try {
         const user = await User.findById(userId);
-        const accessToken = user.getAccessAndRefreshToken();
+        const accessToken = user.generateAccessToken();
         const refreshToken = user.generateRefreshToken();
 
         // refresh token is saved in db -- we will store it in the user object and save it
@@ -113,7 +114,7 @@ const loginUser = asyncHandler( async (req, res) => {
     const { username, email, password } = req.body;
 
     // username based login or email based login
-    if ( !username || !email ) throw new apiError(400, "username or email is required.");
+    if ( !(username || email) ) throw new apiError(400, "username or email is required.");
 
     // validate the inputs - check new user or existing user
     const existingUser = await User.findOne({
@@ -205,8 +206,59 @@ const logoutUser = asyncHandler( async (req, res) => {
                 )
     } );
 
+const refreshAccessToken = asyncHandler( async (req, res) => {
+    try {
+        // get the existing refresh token
+        const incomingRefreshToken = req.cookie.refreshToken || req.body.refreshToken;
+        // if someone is using mobile app, that's why we gave req.body.refreshToken
+    
+        // if there is no existing refresh token
+        if (!incomingRefreshToken) throw new apiError(401, "UNAUTHORIZED ACCESS. PLEASE LOGIN AGAIN.");
+    
+        // verify the existing token with the token stored in db
+        const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
+    
+        if (!decodedToken) throw new apiError(401, "EXISTING TOKEN IS NOT VERIFIED. PLEASE LOGIN AGAIN.");
+    
+        // if the token is verified, from the decoded token we can get the user's _id
+        // as in user model, refresh token was created with the user's _id...
+        // and with it we can make a db call to fetch the user details.
+        const user = await User.findById(decodedToken?._id);
+    
+        if (!user) throw new apiError(401, "USER NOT FOUND WHILE VERIFYING REFRESH TOKEN.");
+    
+        // now that we have the access to user, we can see the refresh token saved in that user's db
+        // as in getAccessAndRefreshToken(), we actually saved the refresh token in user 
+        // in this code --- await user.save({ validateBeforeSave: false })
+        if (incomingRefreshToken !== user?.refreshToken) throw new apiError(401, "REFRESH TOKEN IS EXPIRED.");
+    
+        // now if the user is valid and have the valid refresh token, we will use the getAccessAndRefreshToken()
+        // to generate a new access and refresh token. Access we will use to login, and refresh we will save in
+        // user as well as in db. Also we will be sending them as cookie.
+        const { accessToken, newRefreshToken } = await getAccessAndRefreshToken(user._id);
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+    
+        return res
+                .status(200)
+                .cookie( "accessToken", accessToken, options )
+                .cookie( "refreshToken", newRefreshToken, options)
+                .json(
+                    new apiResponse( 
+                        200, 
+                        { accessToken, newRefreshToken }, 
+                        "Access token refreshed successfuly."
+                        )
+                    )
+    } catch (error) {
+        throw new apiError(401, error?.message || "ERROR OCCURED WHILE REFRESHING ACCESS TOKEN.")
+    }
+} );
 
-export { registerUser, loginUser, logoutUser };
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken };
 
 
 
