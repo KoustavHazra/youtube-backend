@@ -351,6 +351,132 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
             .json(new apiResponse(200, user, "Cover image updated successfully."));
     } );
 
+const getUserChannelProfile = asyncHandler( async (req, res) => {
+    // to visit a channel in youtube, we usually go to the url of that channel
+    // here also we will do that, we will go the url of that channel. To do that,
+    // we will get the channel data from the url of it. So we will use req.params here
+    const { username } = req.params;
+    if (!username?.trim()) throw new apiError(400, "USERNAME NOT FOUND WHILE SEARCHING CHANNEL.");
+
+    // using aggregation pipeline
+    const channel = await User.aggregate([
+        {
+            $match: {
+                username: username?.toLowerCase()
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribers"  // tell the length of subsribers field
+                },
+                channelSubscribedToCount: {
+                    $size: "$subscribedTo"
+                },
+                isSubscribed: {
+                    $condition: {
+                        if: { $in: [req.user?._id, "$subscribers.subscriber"]},
+                        // if the user's (who's logged in) _id is present in the $subscribers.subscriber or not.
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {
+            $project: {  // it is like .select -- we can controll which data we want to project (1)
+                fullName: 1,
+                username: 1,
+                subscribersCount: 1,
+                channelSubscribedToCount: 1,
+                isSubscribed: 1,
+                email: 1,
+                avatar: 1,
+                coverImage: 1,
+
+            }
+        }
+    ]);
+    
+    if (!channel?.length) return new apiError(404, "CHANNEL DOES NOT EXIST.");
+
+    return res
+            .status(200)
+            .json(
+                new apiResponse(200, channel[0], "User channel fetched successfully.")
+            )
+} );
+
+const getUserWatchHistory = asyncHandler( async (req, res) => {
+    const user = User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.isVerifiedUser._id)
+            }
+        },
+        {
+            $lookup: {
+                from: "videos",  
+                // checking from "Video" model, but as in mongo "Video" is saved as "videos", we should be using that name here.
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields: {
+                            owner: {
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+    ]);
+    if (!user) throw new apiError(404, "UNABLE TO FETCH USER WHILE GETTING USER'S WATCH HISTORY.");
+
+    return res
+            .status(200)
+            .json(
+                apiResponse(200, user[0].watchHistory, "Watch history fetched successfully.")
+            )
+} );
+
+
+
 export { registerUser, 
         loginUser, 
         logoutUser, 
@@ -360,7 +486,8 @@ export { registerUser,
         getAccoutDetails,
         updateUserAvatar,
         updateUserCoverImage,
-
+        getUserChannelProfile,
+        getUserWatchHistory
     };
 
 
@@ -454,4 +581,22 @@ exists, give the value otherwise give "".
 
 
 
+if we do req.isVerifiedUser._id --- it gives us a string, and not the whole mongo db _id.
+But as we are using mongoos, and when we pass that string id, it automatically underneath change that
+string to a Object ( which is the actual Mongo db id ), and then that is used to perform any db call.
+
+However while writing aggregate pipelines, if we write this ---
+const user = User.aggregate([
+        {
+            $match: {
+                _id: req.isVerifiedUser._id
+            }
+        },
+    ]);
+
+    Here req.isVerifiedUser._id won't work, as here mongoose is not coming in the picture. 
+That's why here we have to create an object id of mongoose we can do this ----
+
+_id: new mongoose.Types.ObjectId(req.isVerifiedUser._id)  -- again here the string id will be converted to 
+mongo db object id.
 */

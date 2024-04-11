@@ -11,3 +11,9 @@ UPDATES ::
 2. create fixed status code for every error sent to user. Specify user existing error code, password error code ...
 
 3. we can add forgot password in the user-controller file.
+
+4. in user-controller we can add otp based email signup, same thing can be done while updating a new email.
+
+5. in user-controller, while updating avatar and cover image, we need to delete the old one. So need to create a new utility file for it.
+
+6. 
