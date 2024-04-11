@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import jwt from "jsonwebtoken";
+import { mongoose } from "mongoose";
 
 
 const getAccessAndRefreshToken = async (userId) => {
@@ -175,9 +176,13 @@ const logoutUser = asyncHandler( async (req, res) => {
     await User.findByIdAndUpdate(
         req.isVerifiedUser._id,
         {
-            $set: { refreshToken: undefined }
+            $unset: { refreshToken: 1 }
+            // before we were using this here --- $set: { refreshToken: undefined }
             // through User we will find the user using req.isVerifiedUser._id, and using $set operator
-            // we will delete the refresh token from server
+            // we will delete the refresh token from server. But that was having some problem while logging out.
+
+            // later we moved to $unset, in which if we pass a field, and set it's value to 1.. that will 
+            // unset the given field, which means that will remove the field's value.
         },
         {
             new: true
@@ -294,10 +299,11 @@ const getCurrentUser = asyncHandler( async (req, res) => {
             ))
     } );
 
-const getAccoutDetails = asyncHandler( async (req, res) => {
+const updateAccountDetails = asyncHandler( async (req, res) => {
     const {fullName, email } = req.body;
+
     if (!(fullName || email)) throw new apiError(400, "PLEASE PROVIDE EITHER FULLNAME OR EMAIL, OR PROVIDE BOTH.");
-    const user = User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
                 req.isVerifiedUser._id,
                 {
                     $set: {
@@ -308,7 +314,8 @@ const getAccoutDetails = asyncHandler( async (req, res) => {
                 {
                     new: true
                 }
-            ).select("-password -refreshToken");
+            ).select("-password");
+
     return res
             .status(200)
             .json(new apiResponse(200, user, "Account details updated successfully."))
@@ -390,7 +397,7 @@ const getUserChannelProfile = asyncHandler( async (req, res) => {
                     $size: "$subscribedTo"
                 },
                 isSubscribed: {
-                    $condition: {
+                    $cond: {
                         if: { $in: [req.user?._id, "$subscribers.subscriber"]},
                         // if the user's (who's logged in) _id is present in the $subscribers.subscriber or not.
                         then: true,
@@ -413,7 +420,7 @@ const getUserChannelProfile = asyncHandler( async (req, res) => {
             }
         }
     ]);
-    
+    console.log(channel);
     if (!channel?.length) return new apiError(404, "CHANNEL DOES NOT EXIST.");
 
     return res
@@ -424,7 +431,7 @@ const getUserChannelProfile = asyncHandler( async (req, res) => {
 } );
 
 const getUserWatchHistory = asyncHandler( async (req, res) => {
-    const user = User.aggregate([
+    const user = await User.aggregate([
         {
             $match: {
                 _id: new mongoose.Types.ObjectId(req.isVerifiedUser._id)
@@ -467,11 +474,11 @@ const getUserWatchHistory = asyncHandler( async (req, res) => {
         },
     ]);
     if (!user) throw new apiError(404, "UNABLE TO FETCH USER WHILE GETTING USER'S WATCH HISTORY.");
-
+    console.log(user);
     return res
             .status(200)
             .json(
-                apiResponse(200, user[0].watchHistory, "Watch history fetched successfully.")
+                new apiResponse(200, user[0].watchHistory, "Watch history fetched successfully.")
             )
 } );
 
@@ -483,7 +490,7 @@ export { registerUser,
         refreshAccessToken, 
         changeCurrentPassword,
         getCurrentUser,
-        getAccoutDetails,
+        updateAccountDetails,
         updateUserAvatar,
         updateUserCoverImage,
         getUserChannelProfile,

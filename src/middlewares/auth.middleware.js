@@ -8,7 +8,8 @@ export const verifyJWT = asyncHandler( async (req, _, next) => {  // since res i
         // to get the cookies we can get it from req -- as in app.js file
         // we gave it the access of cookies through this line of code -----
         // app.use(cookieParser());
-        const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "")
+        const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "");
+
         // there might be no cookies or no access tokens, as we talked in the user controller
         // that user might be using it in a mobile app, where cookies are not accessed
         // in that case user might send us custom header and most common header is "Authorization"
@@ -18,10 +19,10 @@ export const verifyJWT = asyncHandler( async (req, _, next) => {  // since res i
     
         // now verify this token with jwt
         const verifiedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-    
+
         // made a db call to get the user details with the help of verifiedToken and it's _id.
         const verifiedUser = await User.findById(verifiedToken?._id).select( "-password -refreshToken" );
-    
+        
         if (!verifiedUser) throw new apiError(401, "Invalid access token.");
     
         // now that we have our vertified user, we will add it in the req object and pass on, so that
