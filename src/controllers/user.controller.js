@@ -300,7 +300,7 @@ const getCurrentUser = asyncHandler( async (req, res) => {
     } );
 
 const updateAccountDetails = asyncHandler( async (req, res) => {
-    const {fullName, email } = req.body;
+    const { fullName, email } = req.body;
 
     if (!(fullName || email)) throw new apiError(400, "PLEASE PROVIDE EITHER FULLNAME OR EMAIL, OR PROVIDE BOTH.");
     const user = await User.findByIdAndUpdate(
