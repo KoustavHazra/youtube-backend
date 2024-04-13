@@ -3,6 +3,7 @@ import { apiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { User } from "../models/user.model.js";
+import { Video } from "../models/video.model.js";
 
 
 const createPlaylist = asyncHandler(async (req, res) => {
@@ -70,12 +71,42 @@ const getPlaylistById = asyncHandler(async (req, res) => {
 })
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
-    const {playlistId, videoId} = req.params;
+    // TODO: add video to playlist
+    const { playlistId, videoId } = req.params;
+
+    // find that video is existing or not
+    const video = await Video.findById(videoId);
+    if (!video) throw new apiError(401, "VIDEO NOT FOUND.");
+
+    const playlist = await Playlist.findOneAndUpdate(
+        { _id: playlistId, user: req.isVerifiedUser._id, videos: { $ne: videoId } },
+        { $addToSet: { videos: videoId } },
+        { new: true, runValidators: true }
+    );
+    if (!playlist) throw new apiError(401, "PLAYLIST NOT FOUND.");
+
+    return res
+            .status(200)
+            .json(new apiResponse(200, playlist, "Video saved to playlist successfully."))
 })
 
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
-    const {playlistId, videoId} = req.params
     // TODO: remove video from playlist
+    const { playlistId, videoId } = req.params;
+
+    const video = await Video.findById(videoId);
+    if (!video) throw new apiError(401, "VIDEO NOT FOUND.");
+
+    const playlist = await Playlist.findOneAndUpdate(
+        { _id: playlistId, user: req.isVerifiedUser._id, videos: { $ne: videoId } },
+        { $pull: { videos: videoId } },
+        { new: true, runValidators: true }
+    );
+    if (!playlist) throw new apiError(401, "PLAYLIST NOT FOUND.");
+
+    return res
+            .status(200)
+            .json(new apiResponse(200, playlist, "Video removed from playlist successfully."))
 
 })
 

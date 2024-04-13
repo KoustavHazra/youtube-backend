@@ -482,6 +482,12 @@ const getUserWatchHistory = asyncHandler( async (req, res) => {
             )
 } );
 
+// some more functionality to add ----
+
+// reset password using email
+// email otp based login
+// email verification with otp
+// login via Google, LinkedIn, Discord
 
 
 export { registerUser, 
