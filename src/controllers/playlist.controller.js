@@ -74,6 +74,12 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
     // TODO: add video to playlist
     const { playlistId, videoId } = req.params;
 
+    // validate the user first
+    const user = await User.findById(req.isVerifiedUser._id).select(
+        " -password -refreshToken -avatar -coverImage -createdAt -updatedAt -watchHistory -email "
+    );
+    if (!user) throw new apiError(401, "USER IS NOT VERIFIED. PLEASE LOGIN.");
+
     // find that video is existing or not
     const video = await Video.findById(videoId);
     if (!video) throw new apiError(401, "VIDEO NOT FOUND.");
@@ -94,6 +100,12 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
     // TODO: remove video from playlist
     const { playlistId, videoId } = req.params;
 
+    // validate the user first
+    const user = await User.findById(req.isVerifiedUser._id).select(
+        " -password -refreshToken -avatar -coverImage -createdAt -updatedAt -watchHistory -email "
+    );
+    if (!user) throw new apiError(401, "USER IS NOT VERIFIED. PLEASE LOGIN.");
+
     const video = await Video.findById(videoId);
     if (!video) throw new apiError(401, "VIDEO NOT FOUND.");
 
@@ -113,6 +125,12 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
 const deletePlaylist = asyncHandler(async (req, res) => {
     try {
         const { playlistId } = req.params;
+
+        // validate the user first
+        const user = await User.findById(req.isVerifiedUser._id).select(
+            " -password -refreshToken -avatar -coverImage -createdAt -updatedAt -watchHistory -email "
+        );
+        if (!user) throw new apiError(401, "USER IS NOT VERIFIED. PLEASE LOGIN.");
         
         // TODO: delete playlist
         const playlist = await Playlist.findById(playlistId);
