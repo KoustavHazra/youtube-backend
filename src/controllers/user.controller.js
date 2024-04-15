@@ -488,6 +488,7 @@ const getUserWatchHistory = asyncHandler( async (req, res) => {
 // email otp based login
 // email verification with otp
 // login via Google, LinkedIn, Discord
+// delete user
 
 
 export { registerUser, 

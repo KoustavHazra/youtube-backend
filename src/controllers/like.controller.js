@@ -5,6 +5,7 @@ import { Tweet } from "../models/tweet.model.js";
 import { apiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { mongoose } from "mongoose";
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
     const { videoId } = req.params
@@ -85,7 +86,53 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
 const getLikedVideos = asyncHandler(async (req, res) => {
     //TODO: get all liked videos
 
+    // user is logged in ?
+    const user = await User.findById(req.isVerifiedUser._id);
+    if (!user) throw new apiError(400, "USER IS NOT VERIFIED. PLEASE LOGIN.");
 
+    // in the like table find how many videos are liked by a single user, that is our output
+    const likedVideos = await Like.aggregate([
+        {
+            $match: {  // Match likes by the user for videos
+                likedBy: new mongoose.Types.ObjectId(req.isVerifiedUser._id),
+                video: { $exists: true }
+            }
+        },
+        {
+            $group: {
+                _id: "$video",
+                count: { $sum: 1 }
+            }
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "_id",
+                foreignField: "_id",
+                as: "video"
+            }
+        },
+        {
+            $unwind: "$video"
+        },
+        {
+            $project: {
+                _id: 1,
+                title: 1,
+                owner: 1,
+                thumbnail: 1,
+                duration: 1,
+                views: 1,
+                isPublished: 1
+           }
+        }
+    ])
+    
+    if(!likedVideos) throw new apiError(400, "ERROR WHILE FETCHING LIKED VIDEOS.");
+
+    if (likedVideos.length === 0) return res.status(200).json(new apiResponse(200, [], "No liked videos found."));
+
+    else return res.status(200).json(new apiResponse(200, likedVideos, "Liked videos fetched successfully."));
 })
 
 export {
