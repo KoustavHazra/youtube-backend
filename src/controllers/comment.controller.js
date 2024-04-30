@@ -3,7 +3,7 @@ import { Comment } from "../models/comment.model.js";
 import { apiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { Video } from "../controllers/video.controller.js";
+import { Video } from "../models/video.model.js";
 import { User } from "../models/user.model.js";
 
 const getVideoComments = asyncHandler(async (req, res) => {
