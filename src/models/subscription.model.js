@@ -11,6 +11,6 @@ const subscriptionSchema = Schema({
         ref: "User",
         required: true
     },
-}, {timestamps: true});
+}, { timestamps: true });
 
 export const Subscription = model("Subscription", subscriptionSchema);

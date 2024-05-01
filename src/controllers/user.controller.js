@@ -398,7 +398,7 @@ const getUserChannelProfile = asyncHandler( async (req, res) => {
                 },
                 isSubscribed: {
                     $cond: {
-                        if: { $in: [req.user?._id, "$subscribers.subscriber"]},
+                        if: { $in: [req.isVerifiedUser?._id, "$subscribers.subscriber"]},
                         // if the user's (who's logged in) _id is present in the $subscribers.subscriber or not.
                         then: true,
                         else: false
