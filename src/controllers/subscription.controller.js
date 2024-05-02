@@ -79,14 +79,6 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
             $addFields: {
                 totalSubscriberCount: {
                     $size: "$subscribers"  // tell the length of subsribers field
-                },
-                isSubscribed: {
-                    $cond: {
-                        if: { $in: [req.isVerifiedUser?._id, "$subscribers.subscriber"]},
-                        // checking if the user (who's logged in) is present in the subscriber list or not
-                        then: true,
-                        else: false
-                    }
                 }
             }
         },

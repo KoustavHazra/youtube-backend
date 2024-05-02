@@ -12,18 +12,18 @@ const getVideoComments = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10 } = req.query;
 
     // video exists ?
-    const video = await Video.findById(videoId);
-    if (!video) throw new apiError(400, "VIDEO NOT FOUND.");
+    // const video = await Video.findById(videoId);
+    // if (!video) throw new apiError(400, "VIDEO NOT FOUND.");
 
-    // comments exists ?
-    const comments = await Comment.paginate(
-        { video: videoId },
-        { page: parseInt(page), limit: parseInt(limit), sort: { createdAt: -1 } }
-    );
-    if (!comments) throw new apiError(400, "COMMENTS NOT FOUND.");
+    // // comments exists ?
+    // const comments = await Comment.paginate(
+    //     { video: videoId },
+    //     { page: parseInt(page), limit: parseInt(limit), sort: { createdAt: -1 } }
+    // );
+    // if (!comments) throw new apiError(400, "COMMENTS NOT FOUND.");
 
-    if (comments.length === 0) return res.status(200).json(new apiResponse(200, {}, "No comment found for this video."));
-    else return res.status(200).json(new apiResponse(200, comments, "Comments fetched successfully."));
+    // if (comments.length === 0) return res.status(200).json(new apiResponse(200, {}, "No comment found for this video."));
+    // else return res.status(200).json(new apiResponse(200, comments, "Comments fetched successfully."));
 
 })
 
@@ -50,34 +50,34 @@ const updateComment = asyncHandler(async (req, res) => {
     const { videoId, commentId } = req.body;
 
     // user is verified ?
-    const user = await User.findById(req.isVerifiedUser._id).select(
-        " -password -refreshToken -avatar -coverImage -createdAt -updatedAt -watchHistory -email "
-    );
-    if (!user) throw new apiError(400, "USER IS NOT VERIFIED. PLEASE LOGIN.");
+    // const user = await User.findById(req.isVerifiedUser._id).select(
+    //     " -password -refreshToken -avatar -coverImage -createdAt -updatedAt -watchHistory -email "
+    // );
+    // if (!user) throw new apiError(400, "USER IS NOT VERIFIED. PLEASE LOGIN.");
 
-    // video exists ?
-    const video = await Video.findById(videoId);
-    if (!video) throw new apiError(400, "VIDEO NOT FOUND.");
+    // // video exists ?
+    // const video = await Video.findById(videoId);
+    // if (!video) throw new apiError(400, "VIDEO NOT FOUND.");
 
-    // comment exists
-    const comment = await Comment.findById(commentId);
-    if (!comment) throw new apiError(400, "COMMENT NOT FOUND.");
+    // // comment exists
+    // const comment = await Comment.findById(commentId);
+    // if (!comment) throw new apiError(400, "COMMENT NOT FOUND.");
 
-    // update comment
-    const updatedComment = await Comment.findByIdAndUpdate(
-        commentId,
-        {
-            $set: {
-                comment: comment
-            }
-        },
-        {
-            new: true
-        }
-    );
-    if (!updateComment) throw new apiError(400, "COMMENT NOT UPDATED.");
+    // // update comment
+    // const updatedComment = await Comment.findByIdAndUpdate(
+    //     commentId,
+    //     {
+    //         $set: {
+    //             comment: comment
+    //         }
+    //     },
+    //     {
+    //         new: true
+    //     }
+    // );
+    // if (!updateComment) throw new apiError(400, "COMMENT NOT UPDATED.");
 
-    return res.status(200).json(new apiResponse(200, updateComment, "Comment is updated."));
+    // return res.status(200).json(new apiResponse(200, updateComment, "Comment is updated."));
 
 })
 
@@ -109,5 +109,5 @@ export {
     getVideoComments, 
     addComment, 
     updateComment,
-     deleteComment
+    deleteComment
     }

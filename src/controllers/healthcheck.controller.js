@@ -10,11 +10,11 @@ const healthcheck = asyncHandler(async (req, res) => {
     // check db connection
     const dbConnected = mongoose.connection.readyState;
 
-    if (dbConnected === 0) return res.status(500).json(new apiError(500, "Inernal Server Error"));
+    if (dbConnected === 0) return res.status(500).json(new apiError(500, "Inernal Server Error."));
     
-    if (dbConnected === 1) return res.status(200).json(new apiResponse(200, "Health check passed"));
+    if (dbConnected === 1) return res.status(200).json(new apiResponse(200, "Health check passed. DB is connected."));
 
-    if (dbConnected === 2) return res.status(500).json(new apiError(500, "Inernal Server Error"));
+    if (dbConnected === 2) return res.status(500).json(new apiError(500, "Inernal Server Error."));
     
 })
 
