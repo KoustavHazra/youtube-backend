@@ -75,7 +75,7 @@ const deleteTweet = asyncHandler(async (req, res) => {
     if (!user) throw new apiError(400, "USER IS NOT VERIFIED. PLEASE LOGIN.");
 
     // get the tweet from param
-    const tweetId = req.params.tweetId;
+    const { tweetId } = req.params;
     const tweet = await Tweet.findById(tweetId);
     if (!tweet) throw new apiError(400, "TWEET WAS NOT FOUND.");
 

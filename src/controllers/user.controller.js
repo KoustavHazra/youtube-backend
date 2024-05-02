@@ -5,6 +5,8 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import jwt from "jsonwebtoken";
 import { mongoose } from "mongoose";
+import { Video } from "../models/video.model.js";
+import {v2 as cloudinary} from 'cloudinary';
 
 
 const getAccessAndRefreshToken = async (userId) => {
@@ -26,7 +28,6 @@ const getAccessAndRefreshToken = async (userId) => {
         throw new apiError(500, "TOKEN GENERATION ISSUE. PLEASE REACH OUT TO PUZZLES.")
     }
 };
-
 
 const registerUser = asyncHandler( async (req, res) => {
     // get userdata from registration form
@@ -482,13 +483,76 @@ const getUserWatchHistory = asyncHandler( async (req, res) => {
             )
 } );
 
+const deleteUserAccount = asyncHandler( async (req, res) => {
+    // delete user's own account
+    const { userId } = req.params;
+
+    // user id check
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+        throw new apiError(401, "INVALID USER ID.");
+    }
+
+    const user = await User.findById(req.isVerifiedUser._id);
+    if (!user) throw new apiError(400, "USER IS NOT VERIFIED. PLEASE LOGIN.");
+    
+    // logged in user id and channel id cannot be same, since user cannot subscribe to their own channel
+    if (userId.toString() !== user._id.toString()) throw new apiError(401, "CANNOT DELETE OTHER USER ACCOUNT.");
+
+    // Function to extract public_id from a Cloudinary URL
+    const extractPublicId = (url) => {
+        const parts = url.split('/');
+        const fileName = parts.pop();
+        const publicId = fileName.split('.')[0];
+        return publicId;
+    };
+    
+    // Delete Cloudinary assets for avatar and cover image
+    const deleteCloudinaryAssets = async () => {
+        const tasks = [];
+        if (user.avatar) {
+            tasks.push(cloudinary.uploader.destroy(extractPublicId(user.avatar)));
+        }
+        if (user.coverImage) {
+            tasks.push(cloudinary.uploader.destroy(extractPublicId(user.coverImage)));
+        }
+        await Promise.all(tasks);
+    };
+
+    // Find user's videos
+    const videos = await Video.find({ owner: user._id });
+
+    // Delete Cloudinary assets for each video
+    const deleteVideoAssets = async () => {
+        if (videos && videos.length > 0) {
+            await Promise.all(videos.map(async (video) => {
+                await cloudinary.uploader.destroy(extractPublicId(video.videoFile));
+                await cloudinary.uploader.destroy(extractPublicId(video.thumbnail));
+            }));
+        }
+    };
+
+    // Delete user account, videos, avatar, and cover image
+    try {
+        await Promise.all([
+            deleteCloudinaryAssets(),
+            deleteVideoAssets(),
+            Video.deleteMany({ owner: user._id }),
+            user.deleteOne()
+        ]);
+    } catch (error) {
+        console.error("Error deleting Cloudinary assets:", error);
+        throw new apiError(500, "Error deleting Cloudinary assets.");
+    }
+
+    return res.status(200).json(new apiResponse(200, {}, "User account deleted successfully."));
+} );
+
+
 // some more functionality to add ----
 
-// reset password using email
 // email otp based login
 // email verification with otp
 // login via Google, LinkedIn, Discord
-// delete user
 
 
 export { registerUser, 
@@ -501,7 +565,8 @@ export { registerUser,
         updateUserAvatar,
         updateUserCoverImage,
         getUserChannelProfile,
-        getUserWatchHistory
+        getUserWatchHistory,
+        deleteUserAccount
     };
 
 

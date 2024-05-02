@@ -7,67 +7,56 @@ import { Video } from "../models/video.model.js";
 
 
 const createPlaylist = asyncHandler(async (req, res) => {
-    try {
-        const { name, description } = req.body;
-        if (!name?.trim() || !description?.trim()) throw new apiError(400, "PLEASE FILL BOTH THE NAME AND DESCRIPTION FIELDS.")
-        
-        //TODO: create playlist
-        // verify if user is logged in  -- how can a user save a playlist without logging in
-        const user = await User.findById(req.isVerifiedUser._id).select(
-            " -password -refreshToken -avatar -coverImage -createdAt -updatedAt -watchHistory -email "
-        );
-        if (!user) throw new apiError(401, "USER IS NOT VERIFIED. PLEASE LOGIN.");
+
+    const { name, description } = req.body;
+    if (!name?.trim() || !description?.trim()) throw new apiError(400, "PLEASE FILL BOTH THE NAME AND DESCRIPTION FIELDS.")
     
-        // create a playlist
-        const playlist = await Playlist.create({ name: name, description: description, owner: user });
-        if (!playlist) throw new apiError(500, "PLAYLIST NOT CREATED. INTERNAL SERVER ERROR.");
-    
-        return res
-                .status(200)
-                .json(new apiResponse(200, playlist, "Playlist created successfully."))
-    } catch (error) {
-        throw new apiError(500, "ERROR OCCURRED WHILE CREATING A PLAYLIST. INTERNAL SERVER ERROR.");
-    }
+    //TODO: create playlist
+    // verify if user is logged in  -- how can a user save a playlist without logging in
+    const user = await User.findById(req.isVerifiedUser._id);
+    if (!user) throw new apiError(401, "USER IS NOT VERIFIED. PLEASE LOGIN.");
+
+    // create a playlist
+    const playlist = await Playlist.create({ name: name, description: description, owner: user });
+    if (!playlist) throw new apiError(500, "PLAYLIST NOT CREATED. INTERNAL SERVER ERROR.");
+
+    return res
+            .status(200)
+            .json(new apiResponse(200, playlist, "Playlist created successfully."))
+
 })
 
 const getUserPlaylists = asyncHandler(async (req, res) => {    
-    try {
-        const { userId } = req.params;
-    
-        //TODO: get user playlists
-        const playlists = await Playlist.find({ owner: userId });
-        if (!playlists) throw new apiError(401, "ERROR OCCURED WHILE FINDING PLAYLISTS.");
-        
-        if (playlists.length > 0) {
-            return res
-                    .status(200)
-                    .json(new apiResponse(200, playlists, "Playlists fetched successfully."))
-        }
-        else {
-            return res
-                .status(200)
-                .json(new apiResponse(200, {}, "No playlists were found for this user."))
-        }
+    const { userId } = req.params;
 
-    } catch (error) {
-        throw new apiError(500, "ERROR OCCURRED WHILE FETCHING USER'S PLAYLISTS. INTERNAL SERVER ERROR.");
+    //TODO: get user playlists
+    const playlists = await Playlist.find({ owner: userId });
+    if (!playlists) throw new apiError(401, "ERROR OCCURED WHILE FINDING PLAYLISTS.");
+    
+    if (playlists.length > 0) {
+        return res
+                .status(200)
+                .json(new apiResponse(200, playlists, "Playlists fetched successfully."))
     }
+    else {
+        return res
+            .status(200)
+            .json(new apiResponse(200, {}, "No playlists were found for this user."))
+    }
+
 })
 
 const getPlaylistById = asyncHandler(async (req, res) => {
-    try {
-        const { playlistId } = req.params;
-        
-        //TODO: get playlist by id
-        const playlist = await Playlist.findById(playlistId);
-        if (!playlist) throw new apiError(401, "ERROR OCCURED WHILE FINDING PLAYLIST.");
+    const { playlistId } = req.params;
     
-        return res
-                .status(200)
-                .json(new apiResponse(200, playlist, "Playlist fetched successfully."))
-    } catch (error) {
-        throw new apiError(500, "ERROR OCCURRED WHILE FETCHING A PLAYLIST. INTERNAL SERVER ERROR.");
-    }
+    //TODO: get playlist by id
+    const playlist = await Playlist.findById(playlistId);
+    if (!playlist) throw new apiError(401, "ERROR OCCURED WHILE FINDING PLAYLIST.");
+
+    return res
+            .status(200)
+            .json(new apiResponse(200, playlist, "Playlist fetched successfully."))
+
 })
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
@@ -75,21 +64,21 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
     const { playlistId, videoId } = req.params;
 
     // validate the user first
-    const user = await User.findById(req.isVerifiedUser._id).select(
-        " -password -refreshToken -avatar -coverImage -createdAt -updatedAt -watchHistory -email "
-    );
+    const user = await User.findById(req.isVerifiedUser._id);
     if (!user) throw new apiError(401, "USER IS NOT VERIFIED. PLEASE LOGIN.");
 
     // find that video is existing or not
     const video = await Video.findById(videoId);
     if (!video) throw new apiError(401, "VIDEO NOT FOUND.");
 
-    const playlist = await Playlist.findOneAndUpdate(
-        { _id: playlistId, user: req.isVerifiedUser._id, videos: { $ne: videoId } },
-        { $addToSet: { videos: videoId } },
-        { new: true, runValidators: true }
-    );
-    if (!playlist) throw new apiError(401, "PLAYLIST NOT FOUND.");
+    // playlist exists ?
+    const playlist = await Playlist.findById(playlistId);
+    if (!playlist) throw new apiError(401, "ERROR OCCURED WHILE FINDING PLAYLIST.");
+    
+    if (!playlist?.videos?.includes(videoId)) {
+        playlist.videos.push(videoId);
+        await playlist.save();
+    }
 
     return res
             .status(200)
@@ -101,20 +90,18 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
     const { playlistId, videoId } = req.params;
 
     // validate the user first
-    const user = await User.findById(req.isVerifiedUser._id).select(
-        " -password -refreshToken -avatar -coverImage -createdAt -updatedAt -watchHistory -email "
-    );
+    const user = await User.findById(req.isVerifiedUser._id);
     if (!user) throw new apiError(401, "USER IS NOT VERIFIED. PLEASE LOGIN.");
 
     const video = await Video.findById(videoId);
     if (!video) throw new apiError(401, "VIDEO NOT FOUND.");
 
-    const playlist = await Playlist.findOneAndUpdate(
-        { _id: playlistId, user: req.isVerifiedUser._id, videos: { $ne: videoId } },
-        { $pull: { videos: videoId } },
-        { new: true, runValidators: true }
-    );
-    if (!playlist) throw new apiError(401, "PLAYLIST NOT FOUND.");
+    // playlist exists ?
+    const playlist = await Playlist.findById(playlistId);
+    if (!playlist) throw new apiError(401, "ERROR OCCURED WHILE FINDING PLAYLIST.");
+
+    playlist.videos = playlist.videos.filter( item => item === videoId );
+    await playlist.save();
 
     return res
             .status(200)
@@ -123,60 +110,48 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
 })
 
 const deletePlaylist = asyncHandler(async (req, res) => {
-    try {
-        const { playlistId } = req.params;
+    const { playlistId } = req.params;
 
-        // validate the user first
-        const user = await User.findById(req.isVerifiedUser._id).select(
-            " -password -refreshToken -avatar -coverImage -createdAt -updatedAt -watchHistory -email "
-        );
-        if (!user) throw new apiError(401, "USER IS NOT VERIFIED. PLEASE LOGIN.");
-        
-        // TODO: delete playlist
-        const playlist = await Playlist.findById(playlistId);
-        if (!playlist) throw new apiError(401, "PLAYLIST NOT FOUND.");
+    // validate the user first
+    const user = await User.findById(req.isVerifiedUser._id);
+    if (!user) throw new apiError(401, "USER IS NOT VERIFIED. PLEASE LOGIN.");
     
-        // delete the playlist
-        await playlist.deleteOne();
-    
-        return res
-                .status(200)
-                .json(new apiResponse(200, {}, "Playlist deleted successfully."))
-    } catch (error) {
-        throw new apiError(500, "ERROR OCCURRED WHILE DELETING A PLAYLIST. INTERNAL SERVER ERROR.");
-    }
+    // TODO: delete playlist
+    const playlist = await Playlist.findById(playlistId);
+    if (!playlist) throw new apiError(401, "PLAYLIST NOT FOUND.");
+
+    // delete the playlist
+    await playlist.deleteOne();
+
+    return res
+            .status(200)
+            .json(new apiResponse(200, {}, "Playlist deleted successfully."))
 
 })
 
 const updatePlaylist = asyncHandler(async (req, res) => {
-    try {
-        const { playlistId } = req.params;
-        const { name, description } = req.body;
+    const { playlistId } = req.params;
+    const { name, description } = req.body;
+
+    if (!(name?.trim() || description?.trim())) throw new apiError(400, "WITHOUT ANY NEW NAME OR DESCRIPTION PLAYLIST CANNOT BE UPDATED.");
     
-        if (!(name?.trim() || description?.trim())) throw new apiError(400, "WITHOUT ANY NEW NAME OR DESCRIPTION PLAYLIST CANNOT BE UPDATED.");
-        
-        //TODO: update playlist
-        // validate the user first
-        const user = await User.findById(req.isVerifiedUser._id).select(
-            " -password -refreshToken -avatar -coverImage -createdAt -updatedAt -watchHistory -email "
-        );
-        if (!user) throw new apiError(401, "USER IS NOT VERIFIED. PLEASE LOGIN.");
+    //TODO: update playlist
+    // validate the user first
+    const user = await User.findById(req.isVerifiedUser._id);
+    if (!user) throw new apiError(401, "USER IS NOT VERIFIED. PLEASE LOGIN.");
+
+    // find and update the playlist
+    const playlist = await Playlist.findById(playlistId);
+    if (!playlist) throw new apiError(401, "PLAYLIST NOT FOUND.");
     
-        // find and update the playlist
-        const playlist = await Playlist.findById(playlistId);
-        if (!playlist) throw new apiError(401, "PLAYLIST NOT FOUND.");
-        
-        // update the playlist
-        if (name) playlist.name = name;    
-        if (description) playlist.description = description;
-        await playlist.save({ validateBeforeSave: false });
-    
-        return res
-                .status(200)
-                .json(new apiResponse(200, playlist, "Playlist updated succcessfully."))
-    } catch (error) {
-        throw new apiError(500, "ERROR OCCURRED WHILE UPDATING A PLAYLIST. INTERNAL SERVER ERROR.");
-    }
+    // update the playlist
+    if (name) playlist.name = name;    
+    if (description) playlist.description = description;
+    await playlist.save({ validateBeforeSave: false });
+
+    return res
+            .status(200)
+            .json(new apiResponse(200, playlist, "Playlist updated succcessfully."))
 
 })
 

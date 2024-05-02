@@ -4,6 +4,7 @@ This project is a complex backend project that is built with nodejs, expressjs, 
 
 Project uses all standard practices like JWT, bcrypt, access tokens, refresh Tokens and many more.
 
+
 UPDATES ::
 
 1. in user.controller.js, while checking existing user, make checking of username and email separate. So that we can say explicitely if the username is already taken or email already used.
@@ -15,3 +16,5 @@ UPDATES ::
 4. in user-controller we can add otp based email signup, same thing can be done while updating a new email.
 
 5. in user-controller, while updating avatar and cover image, we need to delete the old one. So need to create a new utility file for it.
+
+6. Add a separate dislike button. 
